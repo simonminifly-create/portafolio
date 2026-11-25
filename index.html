@@ -50,11 +50,11 @@ html{scrollbar-width:thin;scrollbar-color:var(--green) var(--char)}
 
 /* scanlines from the original */
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:955;
-  background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.12) 2px 4px)}
+  background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.12) 2px 4px);clip-path:var(--crt-holes,none)}
 
 /* ---------- CRT TUBE (vector-terminal look: curved glass, vignette, refresh bar, flicker) ---------- */
 /* above everything (boot, project pages, lightbox) except the cursor, for the whole visit */
-.crt{position:fixed;inset:0;pointer-events:none;z-index:960;animation:crtFlicker 6s steps(60) infinite;will-change:opacity;contain:strict}
+.crt{position:fixed;inset:0;pointer-events:none;z-index:960;clip-path:var(--crt-holes,none);animation:crtFlicker 6s steps(60) infinite;will-change:opacity;contain:strict}
 /* square corners, no bezel: the curvature is only suggested by light falling off towards the edges */
 .crt::before{content:'';position:absolute;inset:0;
   background:
@@ -186,7 +186,7 @@ html.light .sq:hover{background:var(--green);color:var(--char)}
 
 /* ---------- PROJECTS: panels slide in sideways ---------- */
 /* --per: scroll distance given to each project (more = each one stays on screen longer) */
-.hscroll{--per:160vh;position:relative;height:calc(var(--n)*var(--per))}
+.hscroll{--per:125vh;position:relative;height:calc(var(--n)*var(--per))}
 .hs-sticky{position:sticky;top:0;height:100vh;overflow:hidden}
 .panel{position:absolute;inset:0;background:var(--pc);color:var(--ink);padding:92px calc(var(--gutter) + 40px) 40px var(--gutter);display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:auto 1fr auto;column-gap:clamp(12px,1.6vw,24px);will-change:opacity;opacity:0;visibility:hidden}
 .p-rain{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;opacity:0}
@@ -1042,7 +1042,9 @@ function showOnly(i){
 function onScroll(){
   if(!staticMode){
     var r=hs.getBoundingClientRect(),total=hs.offsetHeight-innerHeight,p=Math.min(1,Math.max(0,-r.top/total));
-    target=Math.round(p*(N-1));
+    var f=p*(N-1),t=Math.round(f);
+    if(t!==shown&&Math.abs(f-shown)<.62)t=shown;   // a little hysteresis: resting near the midpoint doesn't ping-pong
+    target=t;
     if(!busy&&target!==shown)pRain.play(shown,target);
   }
   setInk();
@@ -1134,6 +1136,7 @@ var bandRain=makeRain($('#rain'),{head:'#E4FFE9',trails:['#32FF58'],fade:.14,ste
       slowly at first, then faster, with a block caret;
    2. shortly after each letter is typed it turns into a pixel of the next project (that cell of
       the next page shows through), so the page assembles itself out of the poem. */
+var needSetup=false;   // a resize mid-transition (phone address bar) waits until it ends
 var pRain=(function(){
   var cv=$('#pRain'),ctx=cv.getContext('2d'),dpr=Math.min(devicePixelRatio||1,1.5),W,H,fs,cw,ch,cols,rows,K,typeAt,pixAt,order;
   var mk=document.createElement('canvas'),mctx=mk.getContext('2d'),MR=3;   // low-res reveal mask, MR px per cell
@@ -1159,9 +1162,19 @@ var pRain=(function(){
     busy=true;if(!W)setup();
     A.style.zIndex='1';B.style.zIndex='2';
     mctx.clearRect(0,0,mk.width,mk.height);mctx.fillStyle='#000';
-    var setMask=function(){var u='url('+mk.toDataURL()+')';B.style.webkitMaskImage=u;B.style.maskImage=u};
+    // the new mask is decoded off-screen first and only then applied, so the next page never flashes
+    // in full (or blanks out) while the browser decodes it; one decode at a time, the latest wins
+    var finished=false,inFlight=false,dirty=false;
+    var applyMask=function(u){if(finished)return;u='url('+u+')';B.style.webkitMaskImage=u;B.style.maskImage=u};
+    var setMask=function(){
+      if(inFlight){dirty=true;return}
+      inFlight=true;dirty=false;
+      var u=mk.toDataURL(),im=new Image();im.src=u;
+      var go=function(){applyMask(u);inFlight=false;if(dirty)setMask()};
+      im.decode?im.decode().then(go,go):(im.onload=go);
+    };
     B.style.webkitMaskSize=B.style.maskSize='100% 100%';B.style.webkitMaskRepeat=B.style.maskRepeat='no-repeat';
-    setMask();
+    B.style.webkitMaskImage=B.style.maskImage='linear-gradient(#0000,#0000)';   // fully hidden, synchronously
     B.style.visibility='visible';B.style.opacity='1';
     ctx.clearRect(0,0,W,H);cv.style.opacity='1';
     var t0=performance.now(),typed=0,pix=0,caret=-1,inkSwapped=false,done=new Uint8Array(K);
@@ -1190,14 +1203,15 @@ var pRain=(function(){
       if(changed)setMask();
       if(!inkSwapped&&t>END*.5){inkSwapped=true;currentPanel=to;dots.forEach(function(d,k){d.setAttribute('aria-current',k===to)});dotsEl.style.setProperty('--dot-ink',pb.ink);setInk()}
       if(t<END&&pix<K){requestAnimationFrame(frame);return}
-      ctx.clearRect(0,0,W,H);cv.style.opacity='0';
+      finished=true;ctx.clearRect(0,0,W,H);cv.style.opacity='0';
       B.style.webkitMaskImage=B.style.maskImage='';
       showOnly(to);busy=false;
+      if(needSetup){needSetup=false;setup()}
       if(target!==shown)play(shown,target);            // the visitor kept scrolling meanwhile
     }
     requestAnimationFrame(frame);
   }
-  return {play:play,setup:setup};
+  return {play:play,setup:function(){if(busy){needSetup=true;return}setup()}};
 })();
 
 (document.fonts?document.fonts.ready:Promise.resolve()).then(function(){
@@ -1265,14 +1279,14 @@ function openProject(i,opener,fromHash){
     '<div class="proj-skills"><p class="label">&gt;habilidades desarrolladas</p><div class="pills">'+p.skills.map(function(s){return '<span class="pill">'+sentence(s)+'</span>'}).join('')+'</div></div>';
   $$('[data-lb]',proj).forEach(function(b){b.addEventListener('click',function(){openLb(gallery,+b.dataset.lb,b)})});
   $('#projClose').addEventListener('click',function(){closeProject()});
-  proj.scrollTop=0;proj.classList.add('open');projOpen=true;projReturn=opener||null;
+  proj.scrollTop=0;proj.classList.add('open');crtHold();projOpen=true;projReturn=opener||null;
   document.body.style.overflow='hidden';
   if(!fromHash&&location.hash!=='#proyecto/'+p.id)history.pushState({proj:p.id},'','#proyecto/'+p.id);
   setTimeout(function(){$('#projClose').focus()},80);
 }
 function closeProject(fromPop){
   if(!projOpen)return;
-  proj.classList.remove('open');projOpen=false;document.body.style.overflow='';
+  proj.classList.remove('open');projOpen=false;crtHold();document.body.style.overflow='';
   if(!fromPop&&location.hash.indexOf('#proyecto/')===0)history.back();
   if(projReturn)projReturn.focus({preventScroll:true});
 }
@@ -1288,11 +1302,55 @@ addEventListener('popstate',function(){if(!document.body.classList.contains('boo
 var lb=$('#lb'),lbImg=$('#lbImg'),lbList=[],lbIdx=0,lbOpen=false,lbReturn=null;
 function showLb(){lbImg.src=lbList[lbIdx].src;lbImg.alt=lbList[lbIdx].alt;$('#lbCount').textContent=(lbIdx+1)+' / '+lbList.length;
   var m=lbList.length>1;$('#lbPrev').style.visibility=$('#lbNext').style.visibility=m?'visible':'hidden'}
-function openLb(list,i,from){lbList=list;lbIdx=i;lbReturn=from;showLb();lb.classList.add('open');lbOpen=true;setTimeout(function(){$('#lbClose').focus()},50)}
-function closeLb(){lb.classList.remove('open');lbOpen=false;if(lbReturn)lbReturn.focus({preventScroll:true})}
+function openLb(list,i,from){lbList=list;lbIdx=i;lbReturn=from;showLb();lb.classList.add('open');lbOpen=true;crtHold();setTimeout(function(){$('#lbClose').focus()},50)}
+function closeLb(){lb.classList.remove('open');lbOpen=false;crtHold();if(lbReturn)lbReturn.focus({preventScroll:true})}
 function stepLb(d){lbIdx=(lbIdx+d+lbList.length)%lbList.length;showLb()}
 $('#lbClose').addEventListener('click',closeLb);$('#lbPrev').addEventListener('click',function(){stepLb(-1)});$('#lbNext').addEventListener('click',function(){stepLb(1)});
 lb.addEventListener('click',function(e){if(e.target===lb||e.target.classList.contains('stage'))closeLb()});
+
+/* ================= CRT HOLES =================
+   The scanlines and the tube overlay (vignette, refresh bar, flicker) cover the whole screen, but the
+   project pictures and the renders are shown clean: every frame both overlays get a clip-path with a
+   hole over each picture on screen. While a project page or the lightbox is opening or closing
+   (0.75 s) the holes are dropped, so nothing under them shows through. */
+var crtHoldUntil=0;
+function crtHold(){crtHoldUntil=performance.now()+750}
+(function(){
+  var root=document.documentElement,last='';
+  function rectsOf(list,out){
+    list.forEach(function(el){
+      if(!el)return;
+      var r=el.getBoundingClientRect();
+      if(r.width<2||r.height<2||r.bottom<=0||r.top>=innerHeight||r.right<=0||r.left>=innerWidth)return;
+      out.push([Math.max(0,r.left),Math.max(0,r.top),Math.min(innerWidth,r.right),Math.min(innerHeight,r.bottom)]);
+    });
+  }
+  function tick(now){
+    var out=[];
+    if(now>=crtHoldUntil){
+      if(lbOpen)rectsOf([lbImg],out);
+      else if(projOpen)rectsOf($$('.proj-main img,.proc button',proj),out);
+      else{
+        rectsOf(panels.filter(function(el){return staticMode||el.style.visibility==='visible'}).map(function(el){return $('.p-fig img',el)}),out);
+        rectsOf($$('.rtile',rg),out);
+      }
+    }
+    // overlapping holes (two panels during a change) merge into one box, so the winding never flips back
+    for(var i=0;i<out.length;i++)for(var j=i+1;j<out.length;j++){
+      var a=out[i],b=out[j];
+      if(a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3]){out[i]=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[2],b[2]),Math.max(a[3],b[3])];out.splice(j,1);i=-1;break}
+    }
+    var v='none';
+    if(out.length){
+      var d='M0 0H'+innerWidth+'V'+innerHeight+'H0Z';
+      out.forEach(function(r){d+='M'+Math.round(r[0])+' '+Math.round(r[1])+'V'+Math.round(r[3])+'H'+Math.round(r[2])+'V'+Math.round(r[1])+'Z'});  // wound the other way round
+      v='path("'+d+'")';
+    }
+    if(v!==last){last=v;root.style.setProperty('--crt-holes',v)}
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
 
 /* ================= KEYBOARD ================= */
 document.addEventListener('keydown',function(e){
