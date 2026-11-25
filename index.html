@@ -165,16 +165,13 @@ html.light .sw-fill{background:var(--green)}
 html.light .sw-bar{border-color:var(--hair);background:rgba(64,0,88,.06)}
 html.light .sw-bar::after{background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 2px),rgba(229,226,221,.8) calc(5% - 2px) 5%)}
 /* the ASCII portrait keeps the original's polarity: light characters (#E5E2DD) on a purple field */
-html.light img.mtx{opacity:0}
+/* done with the #inkLight SVG filter (not a luminance mask: Safari/iOS and in-app browsers don't support mask-mode) */
 html.light .hero-mtx,html.light .sh-fig{background:#400058}
-html.light .hero-mtx::before,html.light .sh-fig::before{content:'';position:absolute;inset:0;background:#E5E2DD;
-  -webkit-mask:url(matrix_ascii_animation.gif) center/cover no-repeat;mask:url(matrix_ascii_animation.gif) center/cover no-repeat;
-  -webkit-mask-source-type:luminance;mask-mode:luminance}
-html.light .sh-fig::before{bottom:auto;aspect-ratio:1787/1788}
+html.light img.mtx{filter:url(#inkLight)}
 /* footer in light mode = the portrait's own polarity, as in the hero: a flat purple field, light ink */
 html.light .foot{--char:#400058;--black:#400058;--green:#E5E2DD;--green-2:#CFC3D6;--hair:rgba(229,226,221,.32)}
-/* #footInk (inline SVG filter) turns the GIF's background transparent and its characters #E5E2DD */
-html.light .foot-bg{filter:url(#footInk);opacity:.55}html.light body::after{opacity:.5}
+/* #inkLight (inline SVG filter) turns the GIF's background transparent and its characters #E5E2DD */
+html.light .foot-bg{filter:url(#inkLight);opacity:.55}html.light body::after{opacity:.5}
 html.light .fly{filter:drop-shadow(0 0 1px rgba(229,226,221,.9)) drop-shadow(0 0 2px rgba(64,0,88,.35))}
 html.light .fly svg [fill^="rgba(11,12,14"]{fill:rgba(229,226,221,.6)}
 html.light .fly circle{fill:rgba(64,0,88,.55)}
@@ -591,7 +588,7 @@ html.light .idea textarea:focus{box-shadow:0 0 18px rgba(64,0,88,.18)}
 <footer class="foot" data-ink="green">
   <div class="foot-bg" aria-hidden="true"></div>
   <!-- light mode: alpha from the GIF's green channel (its #1A1D22 background drops to 0), colour #E5E2DD -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="footInk" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .898  0 0 0 0 .886  0 0 0 0 .867  0 1.6 0 0 -.2"/></filter></svg>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="inkLight" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .898  0 0 0 0 .886  0 0 0 0 .867  0 1.6 0 0 -.2"/></filter></svg>
   <form class="idea" id="idea" novalidate>
    <div class="idea-win">
     <div class="idea-top"><span>&gt;nueva_idea</span><span>C:\SIMÓN_MONTOYA\IDEAS</span></div>
