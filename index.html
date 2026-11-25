@@ -438,6 +438,7 @@ html.light .idea textarea:focus{box-shadow:0 0 18px rgba(64,0,88,.18)}
 <canvas id="beam" aria-hidden="true"></canvas>
 
 <audio id="glitchSound" src="Glitch Sound Effect.mp3" preload="auto"></audio>
+<audio id="bootBeep" src="digital-beep.mp3" preload="auto"></audio>
 <audio id="bgMusic" src="lagrimas.web.mp3" loop preload="auto"></audio>
 
 <!-- BOOT -->
@@ -518,7 +519,7 @@ html.light .idea textarea:focus{box-shadow:0 0 18px rgba(64,0,88,.18)}
         <ul class="facts indent">
           <li><span>&gt;ubicación</span> Medellín / Antioquia / Colombia</li>
           <li><span>&gt;institución</span> U. Pontificia Bolivariana</li>
-          <li><span>&gt;edad</span> 21 años</li>
+          <li><span>&gt;edad</span> 22 años</li>
         </ul>
       </div>
     </article>
@@ -657,6 +658,7 @@ function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
 /* ================= SOUND ================= */
 var soundOn=true,bgm=$('#bgMusic'),glitch=$('#glitchSound'),soundBtn=$('#soundBtn');
 glitch.volume=.3;   // the glitch was too loud next to the music (0.4)
+var beep=$('#bootBeep');beep.volume=.3;   // boot sound: a moderate level next to the music (0.4)
 function setSound(on){
   soundOn=on;soundBtn.setAttribute('aria-pressed',on);$('.snd-state',soundBtn).textContent=on?'on':'off';
   if(on){bgm.volume=.4;bgm.play().catch(function(){})}else bgm.pause();
@@ -732,7 +734,7 @@ var bootLogo=$('#bootLogo');
 (function scope(){
   var img=$('img',bootLogo),cv=$('#scope'),ctx=cv.getContext('2d');
   function finish(){bootLogo.classList.add('filled');
-    setTimeout(function(){bootLogo.classList.add('flicker');glitch.play().catch(function(){})},250)}
+    setTimeout(function(){bootLogo.classList.add('flicker');beep.play().catch(function(){})},250)}
   if(reduced){finish();return}
   function go(){
     // 1. trace the outline of every solid part of the logo
@@ -808,7 +810,7 @@ var bootLogo=$('#bootLogo');
   img.complete&&img.naturalWidth?setTimeout(go,60):img.addEventListener('load',function(){setTimeout(go,60)});
 })();
 $('#bootBtn').addEventListener('click',function(){
-  glitch.currentTime=0;glitch.play().catch(function(){});
+  beep.currentTime=0;beep.play().catch(function(){});
   if(soundOn){bgm.volume=.4;bgm.play().catch(function(){})}
   var b=$('#boot');b.classList.add('launching');
   setTimeout(function(){b.classList.add('gone');document.body.classList.remove('booting');b.remove();
